@@ -1,0 +1,64 @@
+# This is for running on sepolia
+# See https://blog.ethereum.org/2023/02/21/sepolia-shapella-announcement
+# for minimum required versions
+
+services:
+  # When debugging, don't forget to add --service-ports flag to expose ports
+  # docker compose run --service-ports lighthouse
+  lighthouse:
+    hostname: foo
+    depends_on:
+      - geth
+    # this is version 3.5.1
+    image: sigp/lighthouse@sha256:80dd478b4cac69c7574b19c84ad8c2b11b783399d6b967ab8ca27aacf2c69c89
+    container_name: lighthouse
+    volumes:
+      - lighthouse-data:/root/.lighthouse
+      - ./jwt.hex:/tmp/jwt.hex
+    ports:
+      - 9000:9000
+      - 5052:5052
+    command:
+      - lighthouse
+      - beacon_node
+
+      - --network=sepolia
+      - --checkpoint-sync-url=https://sepolia.checkpoint-sync.ethdevops.io
+      - --disable-deposit-contract-sync # since we're not staking (https://lighthouse-book.sigmaprime.io/run_a_node.html#non-staking)
+
+      - --execution-endpoint=http://geth:8551
+      - --execution-jwt=/tmp/jwt.hex
+
+      - --http
+
+  # When debugging, don't forget to add --service-ports flag to expose ports
+  # docker compose run --service-ports geth
+  geth:
+    image: ethereum/client-go:v1.11.3
+    hostname: foo
+    container_name: geth
+    volumes:
+      - geth-data:/root/.ethereum
+      - ./jwt.hex:/tmp/jwt.hex
+    ports:
+      # These are actually already enabled in the image, but we add them for didactic purposes
+      - 8545:8545
+      - 30303:30303
+    command:
+      - --sepolia
+      - --syncmode=snap # https://geth.ethereum.org/docs/fundamentals/sync-modes
+
+      - --authrpc.addr=0.0.0.0
+      - --authrpc.port=8551
+      - --authrpc.jwtsecret=/tmp/jwt.hex
+      - --authrpc.vhosts=* # necessary for letting lighthouse connect (not sure why)
+
+      - --http
+      - --http.api=eth,admin
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      # - --http.vhosts=*
+
+volumes:
+  lighthouse-data:
+  geth-data:
