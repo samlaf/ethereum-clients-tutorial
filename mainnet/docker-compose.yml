@@ -11,7 +11,7 @@ services:
       - geth
     # this is version 3.5.1
     image: sigp/lighthouse@sha256:80dd478b4cac69c7574b19c84ad8c2b11b783399d6b967ab8ca27aacf2c69c89
-    container_name: lighthouse-sepolia
+    container_name: lighthouse-mainnet
     volumes:
       - lighthouse-data:/root/.lighthouse
       - ./jwt.hex:/tmp/jwt.hex
@@ -22,8 +22,8 @@ services:
       - lighthouse
       - beacon_node
 
-      - --network=sepolia
-      - --checkpoint-sync-url=https://sepolia.checkpoint-sync.ethdevops.io
+      - --network=mainnet
+      - --checkpoint-sync-url=https://sync-mainnet.beaconcha.in
       - --disable-deposit-contract-sync # since we're not staking (https://lighthouse-book.sigmaprime.io/run_a_node.html#non-staking)
 
       - --execution-endpoint=http://geth:8551
@@ -38,7 +38,7 @@ services:
   geth:
     image: ethereum/client-go:v1.11.3
     hostname: foo
-    container_name: geth-sepolia
+    container_name: geth-mainnet
     volumes:
       - geth-data:/root/.ethereum
       - ./jwt.hex:/tmp/jwt.hex
@@ -47,7 +47,7 @@ services:
       - 8545:8545
       - 30303:30303
     command:
-      - --sepolia
+      - --mainnet
       - --syncmode=snap # https://geth.ethereum.org/docs/fundamentals/sync-modes
 
       - --authrpc.addr=0.0.0.0
