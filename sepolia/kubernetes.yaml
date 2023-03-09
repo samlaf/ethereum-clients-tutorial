@@ -1,0 +1,199 @@
+# 2 statefulsets, their 2 respective services, and a network policy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: geth
+  labels:
+    app: geth
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: "8545"
+      port: 8545
+      targetPort: 8545
+    - name: "30303"
+      port: 30303
+      targetPort: 30303
+  selector:
+    app: geth
+# status:
+#   loadBalancer: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lighthouse
+  labels:
+    app: lighthouse
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: "9000"
+      port: 9000
+      targetPort: 9000
+    - name: "5052"
+      port: 5052
+      targetPort: 5052
+  selector:
+    app: lighthouse
+# status:
+#   loadBalancer: {}
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: geth
+  labels:
+    app: geth
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: geth
+  serviceName: geth
+  template:
+    metadata:
+      labels:
+        io.kompose.network/sepolia-default: "true"
+        app: geth
+    spec:
+      containers:
+        - image: ethereum/client-go:v1.11.3
+          name: geth-sepolia
+          args:
+            - --sepolia
+            - --syncmode=snap
+            - --authrpc.addr=0.0.0.0
+            - --authrpc.port=8551
+            # TODO: use a configmap for this
+            - --authrpc.jwtsecret=/secret/jwt
+            - --authrpc.vhosts=*
+            - --http
+            - --http.api=eth,admin
+            - --http.addr=0.0.0.0
+            - --http.port=8545
+          ports:
+            - containerPort: 8545
+            - containerPort: 30303
+          resources: {}
+          volumeMounts:
+            - mountPath: /root/.ethereum
+              name: geth-data
+            - mountPath: /secret
+              name: jwt
+              readOnly: true
+      volumes:
+        - name: jwt
+          secret:
+            secretName: jwt
+      hostname: foo
+      restartPolicy: Always
+  updateStrategy: {}
+  volumeClaimTemplates:
+    - metadata:
+        labels:
+          app: geth-data
+        name: geth-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Mi
+      status: {}
+status:
+  replicas: 0
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sepolia-default
+spec:
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              io.kompose.network/sepolia-default: "true"
+  podSelector:
+    matchLabels:
+      io.kompose.network/sepolia-default: "true"
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: lighthouse
+  labels:
+    app: lighthouse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lighthouse
+  serviceName: lighthouse
+  template:
+    metadata:
+      labels:
+        io.kompose.network/sepolia-default: "true"
+        app: lighthouse
+    spec:
+      containers:
+        - args:
+            - lighthouse
+            - beacon_node
+            - --network=sepolia
+            - --checkpoint-sync-url=https://sepolia.checkpoint-sync.ethdevops.io
+            - --disable-deposit-contract-sync
+            - --execution-endpoint=http://geth-0.geth.default.svc.cluster.local:8551
+            - --execution-jwt=/secret/jwt
+            - --http
+            - --http-address=0.0.0.0
+            - --http-port=5052
+          image: sigp/lighthouse@sha256:80dd478b4cac69c7574b19c84ad8c2b11b783399d6b967ab8ca27aacf2c69c89
+          name: lighthouse-sepolia
+          ports:
+            - containerPort: 9000
+            - containerPort: 5052
+          resources: {}
+          volumeMounts:
+            - mountPath: /root/.lighthouse
+              name: lighthouse-data
+            - mountPath: /secret
+              name: jwt
+              readOnly: true
+      volumes:
+        - name: jwt
+          secret:
+            secretName: jwt
+      hostname: foo
+      restartPolicy: Always
+  updateStrategy: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: lighthouse-data
+        labels:
+          app: lighthouse-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 100Mi
+      status: {}
+status:
+  replicas: 0
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: jwt
+data:
+  # e277567981cf5d78cb75f1b8d897348803d2d7688a87621c1548291e4f70250b encoded in base64
+  # See https://kubernetes.io/docs/tasks/inject-data-application/distribute-credentials-secure/
+  jwt: ZTI3NzU2Nzk4MWNmNWQ3OGNiNzVmMWI4ZDg5NzM0ODgwM2QyZDc2ODhhODc2MjFjMTU0ODI5MWU0ZjcwMjUwYg==
