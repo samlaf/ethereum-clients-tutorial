@@ -1,4 +1,4 @@
-# This is for running on mainnet
+# This is for running on goerli
 
 services:
   # When debugging, don't forget to add --service-ports flag to expose ports
@@ -7,7 +7,7 @@ services:
     hostname: foo
     depends_on:
       - geth
-    # this is version 3.5.1
+    # this is version 3.5.1 (goerli shapella fork)
     image: sigp/lighthouse@sha256:80dd478b4cac69c7574b19c84ad8c2b11b783399d6b967ab8ca27aacf2c69c89
     container_name: lighthouse-mainnet
     volumes:
@@ -20,8 +20,8 @@ services:
       - lighthouse
       - beacon_node
 
-      - --network=mainnet
-      - --checkpoint-sync-url=https://sync-mainnet.beaconcha.in
+      - --network=goerli
+      - --checkpoint-sync-url=https://goerli.beaconstate.ethstaker.cc/
       - --disable-deposit-contract-sync # since we're not staking (https://lighthouse-book.sigmaprime.io/run_a_node.html#non-staking)
 
       - --execution-endpoint=http://geth:8551
@@ -34,7 +34,7 @@ services:
   # When debugging, don't forget to add --service-ports flag to expose ports
   # docker compose run --service-ports geth
   geth:
-    image: ethereum/client-go:v1.11.3
+    image: ethereum/client-go:v1.11.4
     hostname: foo
     container_name: geth-mainnet
     volumes:
@@ -45,7 +45,7 @@ services:
       - 8545:8545
       - 30303:30303
     command:
-      - --mainnet
+      - --goerli
       - --syncmode=snap # https://geth.ethereum.org/docs/fundamentals/sync-modes
 
       - --authrpc.addr=0.0.0.0
